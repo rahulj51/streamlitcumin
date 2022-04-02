@@ -2,10 +2,9 @@ import streamlit as st
 import pandas as pd
 import duckdb
 from annotated_text import annotated_text
-from st_aggrid import AgGrid
+from st_aggrid import AgGrid, GridOptionsBuilder, JsCode
 
-
-
+st.set_page_config(layout='wide')
 st.title('Project Progress Report')
 
 keys = ["Summary", "Issue key", "Issue Type", "Status", "Custom field (Epic Link)","Assignee","Created"]
@@ -58,6 +57,8 @@ if uploaded_file is not None:
     full_df = pd.read_csv(uploaded_file)
     df = full_df[keys]
     conn = duckdb.connect()
+    conn.execute("CREATE TABLE epic_statuses (epic_id String, epic_url String, status String, pct_completed Integer)")
+    epic_statuses = conn.table("epic_statuses")
 
     alldata = conn.from_df(df)
 
@@ -80,12 +81,33 @@ if uploaded_file is not None:
         status = summary_status(ticket_statuses, epic_status)
         pct = pct_completed(ticket_statuses)
 
-        with st.container():
-            annotated_text((f"{status}", "", f"{get_color(status)}"))
-            st.markdown(f"Epic - [{epic}](https://jira.taxibeat.com/browse/{epic}) : {epic_summary}")
-            st.progress(pct)
-            with st.expander("See all tickets"):
-                AgGrid(tickets_in_this_epic.to_df(), key=epic)
+        # add this into into the statuses table
+        epic_url = f"https://jira.taxibeat.com/browse/{epic}"
+        conn.execute("Insert into epic_statuses values (?,?,?,?)", [epic, epic_url, status, pct] )
+
+    # now build a new table that joins the epics and tickets and adds the other stuff
+    epics = epics.set_alias('a').join(epic_statuses.set_alias('b'), 'a."Issue key" = b.epic_id')
+    epics_df = epics.project('epic_id, epic_url, Summary, b.status as status, pct_completed').to_df()
+
+    builder = GridOptionsBuilder.from_dataframe(epics_df)
+    http_renderer = '''
+    function(params) {return '<a href="' + params.value + '">' + params.value + '</a>'}
+    '''
+    builder.configure_column("epic_url", header_name="Epic URL", initialWidth=200, cellRenderer=JsCode(http_renderer))
+    go = builder.build()
+
+    grid_return = AgGrid(epics_df, go, allow_unsafe_jscode=True)
+    # new_df = grid_return["data"]
+    #
+    # # st.write(new_df)
+
+    # with st.container():
+    #
+    #     annotated_text((f"{status}", "", f"{get_color(status)}"))
+    #     st.markdown(f"Epic - [{epic}](https://jira.taxibeat.com/browse/{epic}) : {epic_summary}")
+    #     st.progress(pct)
+    #     with st.expander("See all tickets"):
+    #         AgGrid(tickets_in_this_epic.to_df(), key=epic)
 
 
 
