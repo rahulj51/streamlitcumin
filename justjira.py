@@ -1,19 +1,10 @@
-import streamlit as st
 import pandas as pd
 import duckdb
-from annotated_text import annotated_text
-from st_aggrid import AgGrid, GridOptionsBuilder, JsCode
-
-st.set_page_config(layout='wide')
-st.title('Project Progress Report')
 
 keys = ["Summary", "Issue key", "Issue Type", "Status", "Custom field (Epic Link)","Assignee","Created"]
 
 in_progress_statuses = ['Requested', 'Backlog', 'Implementing', 'Analyze']
 done_statuses = ['Done - In production']
-
-uploaded_file = st.file_uploader("Choose a file")
-
 
 def split_into_epics_and_tickets(alldata):
     epics = alldata.filter('"Issue Type" = \'Epic\'')
@@ -52,9 +43,7 @@ def pct_completed(ticket_statuses):
 
     return round(pct_completed)
 
-
-if uploaded_file is not None:
-    full_df = pd.read_csv(uploaded_file)
+def summarize(full_df):
     df = full_df[keys]
     conn = duckdb.connect()
     conn.execute("CREATE TABLE epic_statuses (epic_id String, epic_url String, status String, pct_completed Integer)")
@@ -64,10 +53,6 @@ if uploaded_file is not None:
 
     # split into epics and tickets
     epics, tickets = split_into_epics_and_tickets(alldata)
-    # st.subheader("Epics")
-    # st.write(epics.df())
-    # st.subheader("Tickets")
-    # st.write(tickets.df())
 
     # iterate over each epic
     epic_links = [ x[0] for x in epics.project('"Issue key"').order('"Issue key"').fetchall()]
@@ -87,35 +72,34 @@ if uploaded_file is not None:
 
     # now build a new table that joins the epics and tickets and adds the other stuff
     epics = epics.set_alias('a').join(epic_statuses.set_alias('b'), 'a."Issue key" = b.epic_id')
-    epics_df = epics.project('epic_id, b.status as status, [pct_completed::Double] as pct_completed, epic_url, Summary').to_df()
-    print(epics_df.head(10))
-    print(epics_df.dtypes)
-    st.write(epics_df)
+    epics_df = epics.project('epic_id, b.status as status, pct_completed, epic_url, Summary').to_df()
 
-    builder = GridOptionsBuilder.from_dataframe(epics_df)
-    http_renderer = '''
-    function(params) {return '<a href="' + params.value + '">' + params.value + '</a>'}
-    '''
+    return epics_df
 
-    cellRendererParams = {
-        "sparklineOptions" : {
-            "type" : "bar",
-            "valueAxisDomain": [0.0, 100.0],
-            "label" : {"enabled": "true"}
-        }
-     }
-
-    builder.configure_column("epic_url", header_name="Epic URL", initialWidth=200, cellRenderer=JsCode(http_renderer))
-    builder.configure_column("status", cellStyle={"background-color": "green"})
-    builder.configure_column("pct_completed", cellRenderer='agSparklineCellRenderer', cellRendererParams=cellRendererParams)
-    go = builder.build()
-
-    grid_return = AgGrid(epics_df, go, allow_unsafe_jscode=True, enable_enterprise_modules=True)
-    new_df = grid_return["data"]
-    print(new_df.head(10))
-    print(new_df.dtypes)
-
-    st.write(new_df)
+    # builder = GridOptionsBuilder.from_dataframe(epics_df)
+    # http_renderer = '''
+    # function(params) {return '<a href="' + params.value + '">' + params.value + '</a>'}
+    # '''
+    #
+    # cellRendererParams = {
+    #     "sparklineOptions" : {
+    #         "type" : "bar",
+    #         "valueAxisDomain": [0.0, 100.0],
+    #         "label" : {"enabled": "true"}
+    #     }
+    #  }
+    #
+    # builder.configure_column("epic_url", header_name="Epic URL", initialWidth=200, cellRenderer=JsCode(http_renderer))
+    # builder.configure_column("status", cellStyle={"background-color": "green"})
+    # builder.configure_column("pct_completed", cellRenderer='agSparklineCellRenderer', cellRendererParams=cellRendererParams)
+    # go = builder.build()
+    #
+    # grid_return = AgGrid(epics_df, go, allow_unsafe_jscode=True, enable_enterprise_modules=True)
+    # new_df = grid_return["data"]
+    # print(new_df.head(10))
+    # print(new_df.dtypes)
+    #
+    # st.write(new_df)
 
 
 
