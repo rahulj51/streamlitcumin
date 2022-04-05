@@ -72,7 +72,7 @@ def summarize(full_df):
 
     # now build a new table that joins the epics and tickets and adds the other stuff
     epics = epics.set_alias('a').join(epic_statuses.set_alias('b'), 'a."Issue key" = b.epic_id')
-    epics_df = epics.project('epic_id, b.status as status, pct_completed, epic_url, Summary').to_df()
+    epics_df = epics.project('epic_id, epic_url, Summary, b.status as status, pct_completed').to_df()
 
     return epics_df
 
