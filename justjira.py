@@ -77,9 +77,3 @@ def summarize(full_df):
     tickets_df = tickets.to_df()
 
     return epics_df, tickets_df
-
-
-
-
-def stories(epic_id):
-    return None

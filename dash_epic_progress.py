@@ -11,9 +11,8 @@ import dash_bootstrap_components as dbc
 
 
 
-df = None
-df2 = None
-specific_df  = None
+epics_df = None
+tickets_df = None
 
 app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP], suppress_callback_exceptions=True)
 
@@ -23,7 +22,7 @@ app.layout = html.Div([
         id='upload-data',
         children=html.Div([
             'Drag and Drop or ',
-            html.A('Select Files')
+            dbc.Button('Select Files')
         ]),
         style= styler.upload_box_style,
         # Allow multiple files to be uploaded
@@ -53,7 +52,7 @@ def update_output(list_of_contents, list_of_names, list_of_dates):
 
 
 def parse_contents(contents, filename, date):
-    global df, df2, specific_df
+    global epics_df, tickets_df
     content_type, content_string = contents.split(',')
 
     decoded = base64.b64decode(content_string)
@@ -72,11 +71,11 @@ def parse_contents(contents, filename, date):
         ])
 
     # take the raw df and process it
-    df, df2 = justjira.summarize(full_df)
-    specific_df = df2
-    df['pct_completed'] = df['pct_completed'].apply(lambda pct: styler.progress_bar(pct))
-    df['epic_url'] = df.apply(lambda x: f"[{x.epic_id}]({x.epic_url})", axis=1)
+    epics_df, tickets_df = justjira.summarize(full_df)
+    epics_df['pct_completed'] = epics_df['pct_completed'].apply(lambda pct: styler.progress_bar(pct))
+    epics_df['epic_url'] = epics_df.apply(lambda x: f"[{x.epic_id}]({x.epic_url})", axis=1)
 
+    epics_table_df = epics_data(epics_df)
 
     return html.Div([
         html.H5(filename),
@@ -84,7 +83,7 @@ def parse_contents(contents, filename, date):
 
         dash_table.DataTable(
             id='table',
-            data=df.to_dict('records'),
+            data=epics_table_df.to_dict('records'),
             style_cell={
                 'textAlign': 'left',
                 'font-size': '15px',
@@ -103,17 +102,15 @@ def parse_contents(contents, filename, date):
                 if col in ["pct_completed", 'epic_url']
                 else
                 {'name': col, 'id': col}
-                for col in df.columns
+                for col in epics_table_df.columns
             ],
             sort_action="native",
             filter_action='native',
-            row_selectable='single',
-            selected_rows=[],
             markdown_options= {"html": True}
         ),
         dbc.Modal(
             [
-                dbc.ModalHeader("Header"),
+                dbc.ModalHeader("Tickets in Epic", id="modal-header"),
 
                 # dbc.ModalBody("This is the content of the modal"),
                 dbc.ModalBody(dash_table.DataTable(
@@ -133,16 +130,9 @@ def parse_contents(contents, filename, date):
 
                     },
                     columns=[
-                        {"name": col, "id": col, "presentation": "markdown"}
-                        if col in ["pct_completed", 'epic_url']
-                        else
                         {'name': col, 'id': col}
-                        for col in specific_df.columns
+                        for col in tickets_df.columns
                     ],
-                    sort_action="native",
-                    filter_action='native',
-                    row_selectable='single',
-                    selected_rows=[],
                     markdown_options={"html": True}
                 )),
                 dbc.ModalFooter(
@@ -157,23 +147,32 @@ def parse_contents(contents, filename, date):
     ])
 
 
-@app.callback([Output('modal', 'is_open'), Output('table2', 'data')],
+def epics_data(epics_df):
+    return epics_df.drop("epic_id", axis=1)
+
+
+
+@app.callback([Output('modal', 'is_open'),
+               Output('table2', 'data'), Output('modal-header', 'children')],
               [Input('table', 'active_cell'),
                Input('close', 'n_clicks')],
               [State("modal", "is_open")])
 def toggle_modal(active_cell, close, is_open):
-    global specific_df
     data = None
-    print("n1: ", active_cell, "n3: ", close)
+    epic_id = None
+    title = "Stories in epic {}"
+
     if active_cell:
         row_id = active_cell['row']
-        epic_id = df.iloc[row_id]['epic_id']
-        print(epic_id)
-        specific_df = df2.query(f'`Custom field (Epic Link)` == "{epic_id}"')
-        data = specific_df.to_dict("records")
+        epic_id = epics_df.iloc[row_id]['epic_id']
+        tickets_in_this_epic = tickets_df.query(f'`Custom field (Epic Link)` == "{epic_id}"')
+        data = tickets_in_this_epic.to_dict("records")
+
     if active_cell or close:
-        return (not is_open), data
-    return is_open, data
+        return (not is_open), data, title.format(epic_id)
+
+    return is_open, data, title.format(epic_id)
+
 
 if __name__ == '__main__':
     app.run_server(debug=True)

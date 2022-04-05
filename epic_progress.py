@@ -55,12 +55,12 @@ def pct_completed(ticket_statuses):
 
 if uploaded_file is not None:
     full_df = pd.read_csv(uploaded_file)
-    df = full_df[keys]
+    epics_df = full_df[keys]
     conn = duckdb.connect()
     conn.execute("CREATE TABLE epic_statuses (epic_id String, epic_url String, status String, pct_completed Integer)")
     epic_statuses = conn.table("epic_statuses")
 
-    alldata = conn.from_df(df)
+    alldata = conn.from_df(epics_df)
 
     # split into epics and tickets
     epics, tickets = split_into_epics_and_tickets(alldata)
