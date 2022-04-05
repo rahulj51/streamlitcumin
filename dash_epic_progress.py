@@ -65,6 +65,7 @@ def parse_contents(contents, filename, date):
     # take the raw df and process it
     df = justjira.summarize(full_df)
     df['pct_completed'] = df['pct_completed'].apply(lambda pct: styler.progress_bar(pct))
+    df['epic_url'] = df['epic_url'].apply(lambda url: f"[{url}]({url})")
 
     return html.Div([
         html.H5(filename),
@@ -74,11 +75,12 @@ def parse_contents(contents, filename, date):
             data=df.to_dict('records'),
             columns=[
                 {"name": col, "id": col, "presentation": "markdown"}
-                if col == "pct_completed"
+                if col in ["pct_completed", 'epic_url']
                 else
                 {'name': col, 'id': col}
                 for col in df.columns
             ],
+            sort_action="native",
             markdown_options= {"html": True}
         ),
 
