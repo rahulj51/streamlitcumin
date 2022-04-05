@@ -74,48 +74,12 @@ def summarize(full_df):
     epics = epics.set_alias('a').join(epic_statuses.set_alias('b'), 'a."Issue key" = b.epic_id')
     epics_df = epics.project('epic_id, epic_url, Summary, b.status as status, pct_completed').to_df()
 
-    return epics_df
+    tickets_df = tickets.to_df()
 
-    # builder = GridOptionsBuilder.from_dataframe(epics_df)
-    # http_renderer = '''
-    # function(params) {return '<a href="' + params.value + '">' + params.value + '</a>'}
-    # '''
-    #
-    # cellRendererParams = {
-    #     "sparklineOptions" : {
-    #         "type" : "bar",
-    #         "valueAxisDomain": [0.0, 100.0],
-    #         "label" : {"enabled": "true"}
-    #     }
-    #  }
-    #
-    # builder.configure_column("epic_url", header_name="Epic URL", initialWidth=200, cellRenderer=JsCode(http_renderer))
-    # builder.configure_column("status", cellStyle={"background-color": "green"})
-    # builder.configure_column("pct_completed", cellRenderer='agSparklineCellRenderer', cellRendererParams=cellRendererParams)
-    # go = builder.build()
-    #
-    # grid_return = AgGrid(epics_df, go, allow_unsafe_jscode=True, enable_enterprise_modules=True)
-    # new_df = grid_return["data"]
-    # print(new_df.head(10))
-    # print(new_df.dtypes)
-    #
-    # st.write(new_df)
-
-
-
-    # new_df = grid_return["data"]
-    #
-    # # st.write(new_df)
-
-    # with st.container():
-    #
-    #     annotated_text((f"{status}", "", f"{get_color(status)}"))
-    #     st.markdown(f"Epic - [{epic}](https://jira.taxibeat.com/browse/{epic}) : {epic_summary}")
-    #     st.progress(pct)
-    #     with st.expander("See all tickets"):
-    #         AgGrid(tickets_in_this_epic.to_df(), key=epic)
+    return epics_df, tickets_df
 
 
 
 
-
+def stories(epic_id):
+    return None
